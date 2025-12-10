@@ -1,13 +1,13 @@
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { UserProfile, WorkoutLog, NutritionGoal, DietPlan } from "../types";
 
-const apiKey = import.meta.env.VITE_GEMINI_API_KEY || '';
-console.log("DEBUG: VITE_GEMINI_API_KEY available:", !!import.meta.env.VITE_GEMINI_API_KEY);
-console.log("DEBUG: apiKey length:", apiKey.length);
-const genAI = new GoogleGenAI({ apiKey });
+const apiKey = import.meta.env.VITE_GEMINI_API_KEY || 'AIzaSyAOmiVUqU0y8ZEEdnRSYrXqgdg8_C4ZN2E';
+console.log("DEBUG: Final API Key used (length):", apiKey.length);
+console.log("DEBUG: API Key source:", import.meta.env.VITE_GEMINI_API_KEY ? "Env Var" : "Hardcoded Fallback");
+const genAI = new GoogleGenerativeAI(apiKey);
 
 // Helper to convert file to base64 with mime type
-export const fileToGenerativePart = async (file: File): Promise<{ mimeType: string, data: string }> => {
+export const fileToGenerativePart = async (file: File): Promise<{ inlineData: { data: string, mimeType: string } }> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onloadend = () => {
@@ -15,8 +15,10 @@ export const fileToGenerativePart = async (file: File): Promise<{ mimeType: stri
       // Remove data url prefix (e.g. "data:image/jpeg;base64,")
       const base64Data = base64String.split(',')[1];
       resolve({
-        mimeType: file.type,
-        data: base64Data
+        inlineData: {
+          data: base64Data,
+          mimeType: file.type
+        }
       });
     };
     reader.onerror = reject;
@@ -34,6 +36,10 @@ export interface WodAnalysisInput {
 
 export const analyzeWod = async (input: WodAnalysisInput, user: UserProfile): Promise<Partial<WorkoutLog>> => {
   try {
+    if (!apiKey) throw new Error("API Key Missing");
+
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
     const systemPrompt = `
       Act as an expert CrossFit coach and nutritionist.
       Analyze the provided WOD (Workout of the Day) information.
@@ -54,72 +60,51 @@ export const analyzeWod = async (input: WodAnalysisInput, user: UserProfile): Pr
 
       IMPORTANT: RESPOND IN SPANISH.
       Return the response in strict JSON format.
+      Structure: { "name": "...", "description": "...", "durationMinutes": 0, "calories": 0, "exercises": [{"name": "...", "weight": "...", "reps": "..."}] }
     `;
 
-    const parts: any[] = [{ text: systemPrompt }];
+    const parts: any[] = [systemPrompt];
 
-    // Add User Input (Text or File)
     if (input.text) {
-      parts.push({ text: `WOD Text Description:\n${input.text}` });
+      parts.push(`WOD Text Description:\n${input.text}`);
     } else if (input.file) {
       parts.push({
         inlineData: {
-          mimeType: input.file.mimeType,
-          data: input.file.data
+          data: input.file.data,
+          mimeType: input.file.mimeType
         }
       });
     }
 
-    const response = await genAI.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: {
-        parts: parts
-      },
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            name: { type: Type.STRING },
-            description: { type: Type.STRING },
-            durationMinutes: { type: Type.NUMBER },
-            calories: { type: Type.NUMBER },
-            exercises: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  name: { type: Type.STRING },
-                  weight: { type: Type.STRING },
-                  reps: { type: Type.STRING }
-                }
-              }
-            }
-          },
-          required: ["name", "description", "durationMinutes", "calories", "exercises"]
-        }
-      }
+    const result = await model.generateContent({
+      contents: [{ role: "user", parts: parts.map(p => typeof p === 'string' ? { text: p } : p) }],
+      generationConfig: { responseMimeType: "application/json" }
     });
 
-    const text = response.text;
-    if (!text) throw new Error("No response from AI");
+    const response = await result.response;
+    const text = response.text();
     return JSON.parse(text);
 
   } catch (error) {
     console.error("Error analyzing WOD:", error);
+    alert(`Error AI (Analyze WOD): ${error instanceof Error ? error.message : String(error)}`);
     throw error;
   }
 };
 
 export const evaluatePerformance = async (log: WorkoutLog, user: UserProfile): Promise<{ xpEarned: number, newLevel: string | null, feedback: string }> => {
   try {
+    if (!apiKey) throw new Error("API Key Missing");
+
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
     const prompt = `
       Evaluate the user's performance in this CrossFit workout to award XP and determine if they should level up.
 
       User Profile:
       - Current Level: ${user.fitnessLevel}
       - Current XP: ${user.xp}
-      - Weight: ${user.weight}kg
+      - Weight: ${user.weight} kg
       - Gender: ${user.gender}
 
       Workout Performed:
@@ -140,137 +125,99 @@ export const evaluatePerformance = async (log: WorkoutLog, user: UserProfile): P
       3. Provide a short, motivating feedback message (max 2 sentences).
 
       IMPORTANT: RESPOND IN SPANISH.
-      Return JSON.
+      Return JSON: { "xpEarned": number, "newLevel": "beginner" | "intermediate" | "rx" | "elite" | null, "feedback": "..." }
     `;
 
-    const response = await genAI.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            xpEarned: { type: Type.NUMBER },
-            newLevel: { type: Type.STRING, enum: ['beginner', 'intermediate', 'rx', 'elite', null], nullable: true },
-            feedback: { type: Type.STRING }
-          },
-          required: ["xpEarned", "feedback"]
-        }
-      }
+    const result = await model.generateContent({
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: { responseMimeType: "application/json" }
     });
 
-    const text = response.text;
-    if (!text) throw new Error("No response from AI");
+    const response = await result.response;
+    const text = response.text();
     return JSON.parse(text);
+
   } catch (error) {
     console.error("Error evaluating performance:", error);
-    // Fallback
-    return { xpEarned: 50, newLevel: null, feedback: "¡Buen trabajo! Sigue así." };
+    alert(`Error AI (Evaluate): ${error instanceof Error ? error.message : String(error)}`);
+    return { xpEarned: 50, newLevel: null, feedback: "¡Buen trabajo! Sigue así. (AI Offline)" };
   }
 };
 
-// Kept for backward compatibility if needed, but analyzeWod handles it now
 export const analyzeWodImage = async (base64Image: string, user: UserProfile): Promise<Partial<WorkoutLog>> => {
   return analyzeWod({ file: { mimeType: 'image/jpeg', data: base64Image } }, user);
 }
 
 export const generateHomeWorkout = async (user: UserProfile, difficulty?: string): Promise<any> => {
   try {
+    if (!apiKey) throw new Error("API Key Missing");
+
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
     const prompt = `
       Create a challenging Home CrossFit Workout for this user:
       - Age: ${user.age}
       - Gender: ${user.gender}
-      - Fitness Level: ${difficulty || user.fitnessLevel} (IMPORTANT: Adjust intensity to this specific level)
+      - Fitness Level: ${difficulty || user.fitnessLevel}
       - Available Equipment: ${user.equipment && user.equipment.length > 0 ? user.equipment.join(', ') : 'None (Bodyweight only)'}
       - Location: ${user.country || 'General'}
 
       The workout should follow a standard CrossFit structure: Warmup, Skill/Strength, WOD, and Cooldown.
       
       IMPORTANT:
-      1. If the user has equipment, incorporate it intelligently into the workout.
+      1. If the user has equipment, incorporate it intelligently.
       2. Ensure the workout is DIFFERENT from typical bodyweight routines if equipment is available.
       3. Focus on variety and high intensity.
-      4. **Difficulty Level**: The user explicitly requested a **${difficulty || user.fitnessLevel}** workout. Ensure the scaling, reps, and movements match this level perfectly.
+      4. Difficulty Level: ${difficulty || user.fitnessLevel}.
 
       IMPORTANT: Return a structured JSON with a 'sections' array.
-      Each section (Warmup, Skill, WOD, Cooldown) must have an 'exercises' array.
-      Each exercise must have:
-      - name: string
-      - instruction: string (reps, sets, or specific details)
-      - durationSeconds: number (0 if it's for reps, otherwise the time in seconds for the timer)
-      
-      Provide a motivational quote at the end in 'tips'.
-      IMPORTANT: RESPOND IN SPANISH.
+      Structure: {
+        "title": "...",
+        "estimatedCalories": 0,
+        "tips": "...",
+        "sections": [
+           { 
+             "name": "Warmup", 
+             "exercises": [ { "name": "...", "instruction": "...", "durationSeconds": 0 } ] 
+           }
+        ]
+      }
+      Respond in Spanish.
     `;
 
-    const response = await genAI.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            title: { type: Type.STRING },
-            estimatedCalories: { type: Type.NUMBER },
-            tips: { type: Type.STRING },
-            sections: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  name: { type: Type.STRING },
-                  exercises: {
-                    type: Type.ARRAY,
-                    items: {
-                      type: Type.OBJECT,
-                      properties: {
-                        name: { type: Type.STRING },
-                        instruction: { type: Type.STRING },
-                        durationSeconds: { type: Type.NUMBER }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
+    const result = await model.generateContent({
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: { responseMimeType: "application/json" }
     });
 
-    const text = response.text;
-    if (!text) throw new Error("No response from AI");
+    const response = await result.response;
+    const text = response.text();
     return JSON.parse(text);
+
   } catch (error) {
     console.error("Error generating workout:", error);
+    alert(`Error AI (Generate Workout): ${error instanceof Error ? error.message : String(error)}`);
     throw error;
   }
 };
 
 export const analyzeFood = async (imageBase64: string): Promise<any> => {
   try {
+    if (!apiKey) throw new Error("API Key Missing");
+
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
     const prompt = `
       Act as an expert nutritionist. Analyze this image of a meal.
       Identify the food items present.
       Estimate the total calories and breakdown of macronutrients (Protein, Carbs, Fat).
       Provide a brief, actionable health tip regarding this meal.
 
-      CRITICAL INSTRUCTION: If the image is blurry, dark, or the food is not clearly identifiable, DO NOT FAIL.
-      Instead, make your BEST EXPERT GUESS based on the general context, colors, and shapes.
-      Assume standard portion sizes if not clear.
-      It is better to provide an estimation than to say "I cannot analyze this".
-
-      IMPORTANT: Return ONLY a valid JSON object with this structure:
+      Structure:
       {
         "foodItems": ["item1", "item2"],
         "calories": number,
-        "macros": {
-          "protein": number,
-          "carbs": number,
-          "fat": number
-        },
+        "macros": { "protein": number, "carbs": number, "fat": number },
         "tips": "string"
       }
       Respond in Spanish.
@@ -279,37 +226,34 @@ export const analyzeFood = async (imageBase64: string): Promise<any> => {
     // Remove data:image/jpeg;base64, prefix if present
     const base64Data = imageBase64.split(',')[1] || imageBase64;
 
-    const response = await genAI.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: {
+    const result = await model.generateContent({
+      contents: [{
+        role: "user",
         parts: [
           { text: prompt },
-          {
-            inlineData: {
-              mimeType: "image/jpeg",
-              data: base64Data
-            }
-          }
+          { inlineData: { data: base64Data, mimeType: "image/jpeg" } }
         ]
-      },
-      config: {
-        responseMimeType: "application/json"
-      }
+      }],
+      generationConfig: { responseMimeType: "application/json" }
     });
 
-    const text = response.text;
-    if (!text) throw new Error("No response from AI");
+    const response = await result.response;
+    const text = response.text();
     return JSON.parse(text);
-
 
   } catch (error) {
     console.error("Error analyzing food:", error);
+    alert(`Error AI (Food): ${error instanceof Error ? error.message : String(error)}`);
     throw error;
   }
 };
 
 export const generateDietPlan = async (user: UserProfile, goal: NutritionGoal): Promise<DietPlan> => {
   try {
+    if (!apiKey) throw new Error("API Key Missing");
+
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
     const prompt = `
       Act as an expert sports nutritionist. Create a daily diet plan for a CrossFit athlete.
       
@@ -320,42 +264,36 @@ export const generateDietPlan = async (user: UserProfile, goal: NutritionGoal): 
       - Gender: ${user.gender}
       - Activity Level: High (CrossFit)
       - Location/Country: ${user.country || 'General'}
-      - Goal: ${goal} (lose_weight, gain_muscle, maintain, performance)
+      - Goal: ${goal}
 
       Tasks:
-      1. Calculate target daily calories and macros (Protein, Carbs, Fat) for this specific goal.
-      2. Suggest 4 meals (Breakfast, Lunch, Dinner, Snack) that fit these macros.
-      3. **CRITICAL**: The menu MUST be based on the cuisine and available ingredients of **${user.country || 'the user\'s region'}**.
-      4. **CRITICAL**: Generate a **UNIQUE and DIFFERENT** menu every time this is called. Do not repeat generic suggestions. Be creative with the daily menu.
+      1. Calculate target daily calories and macros.
+      2. Suggest 4 meals (Breakfast, Lunch, Dinner, Snack).
+      3. CRITICAL: Based on ${user.country || 'the user\'s region'} cuisine.
+      4. Unique and creative menu.
 
-      IMPORTANT: Return ONLY a valid JSON object with this structure:
+      Structure:
       {
         "goal": "${goal}",
         "dailyCalories": number,
-        "macros": {
-          "protein": number,
-          "carbs": number,
-          "fat": number
-        },
-        "meals": [
-          { "name": "Meal Name", "description": "Brief description of ingredients (Local style)", "calories": number }
-        ]
+        "macros": { "protein": number, "carbs": number, "fat": number },
+        "meals": [ { "name": "...", "description": "...", "calories": number } ]
       }
       Respond in Spanish.
     `;
 
-    const response = await genAI.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: { parts: [{ text: prompt }] },
-      config: { responseMimeType: "application/json" }
+    const result = await model.generateContent({
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: { responseMimeType: "application/json" }
     });
 
-    const text = response.text;
-    if (!text) throw new Error("No response from AI");
+    const response = await result.response;
+    const text = response.text();
     return JSON.parse(text);
 
   } catch (error) {
     console.error("Error generating diet plan:", error);
+    alert(`Error AI (Diet): ${error instanceof Error ? error.message : String(error)}`);
     throw error;
   }
 };

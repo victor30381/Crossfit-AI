@@ -364,7 +364,15 @@ const App: React.FC = () => {
   }
 
   return (
-    <Layout activeTab={activeTab} setActiveTab={setActiveTab} theme={theme}>
+    <Layout
+      activeTab={activeTab}
+      setActiveTab={setActiveTab}
+      theme={theme}
+      user={user}
+      onUpdateUser={handleUpdateUser}
+      onUpdateTheme={setTheme}
+      onReset={handleResetRequest}
+    >
       {renderContent()}
 
       {/* Confirmation Modal */}

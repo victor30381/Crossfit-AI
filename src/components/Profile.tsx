@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { UserProfile, THEMES, Theme } from '../types';
-import { Save, User as UserIcon, Menu, X, Globe, Palette, Camera, Sun, Moon, Edit2, Trash2, LogOut, ChevronDown, ChevronUp } from 'lucide-react';
+import { Save, User as UserIcon, Camera, Edit2 } from 'lucide-react';
 import { auth } from '../services/firebase';
 
 
@@ -16,8 +16,6 @@ interface ProfileProps {
 const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser, currentTheme, onUpdateTheme, onReset }) => {
   const [formData, setFormData] = useState<UserProfile>(user);
   const [saved, setSaved] = useState(false);
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isThemeSelectorOpen, setIsThemeSelectorOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(!user.isRegistered); // Edit if not registered
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -68,38 +66,6 @@ const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser, currentTheme, onU
     const updatedUser = { ...formData, language: newLang };
     setFormData(updatedUser);
     onUpdateUser(updatedUser);
-  };
-
-  const toggleMode = () => {
-    if (isLightMode) {
-      // Switch to Dark: Find the original theme from THEMES based on primary color or ID
-      // Since we modify ID for light mode (e.g. 'neon-red-light'), we can strip '-light'
-      const originalId = currentTheme.id.replace('-light', '');
-      const originalTheme = THEMES.find(t => t.id === originalId) || THEMES[0];
-      onUpdateTheme(originalTheme);
-    } else {
-      // Switch to Light: Create a light version of the current theme
-      const lightTheme: Theme = {
-        ...currentTheme,
-        id: `${currentTheme.id}-light`,
-        colors: {
-          ...currentTheme.colors,
-          bg: '#ffffff',
-          card: '#f3f4f6',
-          text: '#111827'
-        }
-      };
-      onUpdateTheme(lightTheme);
-    }
-  };
-
-  const handleLogout = async () => {
-    try {
-      await auth.signOut();
-      // App.tsx handles the redirect via onAuthStateChanged
-    } catch (error) {
-      console.error("Error signing out:", error);
-    }
   };
 
 
@@ -159,12 +125,6 @@ const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser, currentTheme, onU
               <Edit2 size={24} className="text-[var(--color-text)]" />
             </button>
           )}
-          <button
-            onClick={() => setIsMenuOpen(true)}
-            className="p-3 bg-[var(--color-card)] rounded-full hover:bg-[var(--color-primary)]/20 transition-colors border border-gray-800/20"
-          >
-            <Menu size={24} className="text-[var(--color-text)]" />
-          </button>
         </div>
       </div>
 
@@ -279,154 +239,7 @@ const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser, currentTheme, onU
         </form>
       </div>
 
-      {/* Settings Drawer (Hamburger Menu) */}
-      {isMenuOpen && (
-        <div className="fixed inset-0 z-50 flex justify-end">
-          {/* Backdrop */}
-          <div
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-fade-in"
-            onClick={() => setIsMenuOpen(false)}
-          ></div>
 
-          {/* Drawer Content */}
-          <div className="relative w-80 h-full bg-[#0a0a0a] border-l border-gray-800 p-6 shadow-2xl animate-slide-left overflow-y-auto">
-            <div className="flex justify-between items-center mb-8">
-              <h2 className="text-xl font-bold text-white">Configuración</h2>
-              <button
-                onClick={() => setIsMenuOpen(false)}
-                className="p-2 hover:bg-gray-800 rounded-full transition-colors text-gray-400"
-              >
-                <X size={24} />
-              </button>
-            </div>
-
-            {/* Light/Dark Mode Toggle */}
-            <div className="mb-8">
-              <h3 className="text-sm font-bold text-gray-500 uppercase mb-4 flex items-center gap-2">
-                {isLightMode ? <Sun size={16} /> : <Moon size={16} />} Modo
-              </h3>
-              <button
-                onClick={toggleMode}
-                className="w-full flex items-center justify-between p-4 bg-[var(--color-card)] rounded-xl border border-gray-800 hover:border-[var(--color-primary)] transition-all group"
-              >
-                <span className="text-[var(--color-text)] font-medium">
-                  {isLightMode ? 'Modo Claro' : 'Modo Oscuro'}
-                </span>
-                <span className={`text-xs font-bold px-2 py-1 rounded transition-colors ${isLightMode ? 'bg-yellow-500/20 text-yellow-500' : 'bg-blue-500/20 text-blue-500'}`}>
-                  {isLightMode ? 'ACTIVADO' : 'ACTIVADO'}
-                </span>
-              </button>
-            </div>
-
-            {/* Language Selector */}
-            <div className="mb-8">
-              <h3 className="text-sm font-bold text-gray-500 uppercase mb-4 flex items-center gap-2">
-                <Globe size={16} /> Idioma
-              </h3>
-              <button
-                onClick={toggleLanguage}
-                className="w-full flex items-center justify-between p-4 bg-[var(--color-card)] rounded-xl border border-gray-800 hover:border-[var(--color-primary)] transition-all group"
-              >
-                <span className="text-[var(--color-text)] font-medium">
-                  {formData.language === 'en' ? 'English' : 'Español'}
-                </span>
-                <span className="text-[var(--color-primary)] text-xs font-bold bg-[var(--color-primary)]/10 px-2 py-1 rounded group-hover:bg-[var(--color-primary)] group-hover:text-white transition-colors">
-                  CAMBIAR
-                </span>
-              </button>
-            </div>
-
-            {/* Theme Selector */}
-            <div>
-              <button
-                onClick={() => setIsThemeSelectorOpen(!isThemeSelectorOpen)}
-                className="w-full flex items-center justify-between text-sm font-bold text-gray-500 uppercase mb-4 hover:text-[var(--color-primary)] transition-colors"
-              >
-                <span className="flex items-center gap-2"><Palette size={16} /> Tema Neon</span>
-                {isThemeSelectorOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-              </button>
-
-              {isThemeSelectorOpen && (
-                <div className="grid grid-cols-2 gap-3 animate-fade-in">
-                  {THEMES.map((theme) => (
-                    <button
-                      key={theme.id}
-                      onClick={() => {
-                        // If in light mode, apply light version of selected theme
-                        if (isLightMode) {
-                          const lightTheme = {
-                            ...theme,
-                            id: `${theme.id}-light`,
-                            colors: { ...theme.colors, bg: '#ffffff', card: '#f3f4f6', text: '#111827' }
-                          };
-                          onUpdateTheme(lightTheme);
-                        } else {
-                          onUpdateTheme(theme);
-                        }
-                      }}
-                      className={`
-                        relative p-3 rounded-xl border-2 transition-all flex flex-col items-center gap-2
-                        ${currentTheme.id.includes(theme.id)
-                          ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/10'
-                          : 'border-gray-800 bg-[var(--color-card)] hover:border-gray-600'}
-                      `}
-                    >
-                      <div
-                        className="w-8 h-8 rounded-full shadow-[0_0_10px]"
-                        style={{
-                          backgroundColor: theme.colors.primary,
-                          boxShadow: `0 0 10px ${theme.colors.primary}`
-                        }}
-                      ></div>
-                      <span className={`text-xs font-medium ${currentTheme.id.includes(theme.id) ? 'text-[var(--color-text)]' : 'text-gray-400'}`}>
-                        {theme.name.replace('Neon ', '')}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-
-            {/* Reset Progress Section */}
-            <div className="mt-8 pt-8 border-t border-gray-800 space-y-4">
-              <div>
-                <h3 className="text-sm font-bold text-red-500 uppercase mb-4 flex items-center gap-2">
-                  <Trash2 size={16} /> Zona de Peligro
-                </h3>
-                <button
-                  onClick={() => {
-                    setIsMenuOpen(false);
-                    onReset();
-                  }}
-                  className="w-full flex items-center justify-between p-4 bg-red-500/10 rounded-xl border border-red-500/30 hover:bg-red-500 hover:text-white transition-all group"
-                >
-                  <span className="text-red-500 font-medium group-hover:text-white">
-                    Reiniciar Progreso
-                  </span>
-                  <span className="text-xs font-bold px-2 py-1 rounded bg-red-500/20 text-red-500 group-hover:bg-white/20 group-hover:text-white transition-colors">
-                    RESET
-                  </span>
-                </button>
-              </div>
-
-              <button
-                onClick={handleLogout}
-                className="w-full flex items-center justify-between p-4 bg-gray-800/50 rounded-xl border border-gray-700 hover:bg-gray-800 hover:text-white transition-all group"
-              >
-                <span className="text-gray-400 font-medium group-hover:text-white flex items-center gap-2">
-                  <LogOut size={18} /> Cerrar Sesión
-                </span>
-              </button>
-            </div>
-
-
-            <div className="mt-12 pt-6 border-t border-gray-800 text-center">
-              <p className="text-xs text-gray-600">CrossFit App v1.0</p>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
