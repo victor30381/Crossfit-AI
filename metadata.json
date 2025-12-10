@@ -1,0 +1,7 @@
+{
+  "name": "CrossFit App",
+  "description": "A comprehensive CrossFit companion featuring AI-powered WOD analysis, smart training tracking, dynamic timers, and personalized home workouts.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}

@@ -1,0 +1,16 @@
+/* Global Styles */
+
+/* Fix for date input calendar icon in dark mode */
+input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+    cursor: pointer;
+    opacity: 0.6;
+    transition: opacity 0.2s;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator:hover {
+    opacity: 1;
+}
+
+/* Custom Scrollbar (matching index.html styles but keeping here for reference/centralization if needed later) */
+/* Note: index.html has inline styles for scrollbar, so this might be redundant but good practice */
