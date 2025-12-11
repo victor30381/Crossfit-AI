@@ -272,6 +272,32 @@ const Nutrition: React.FC<NutritionProps> = ({ user, nutritionLogs = [], onAddLo
                                             placeholder="Ej: Ensalada de pollo con palta..."
                                             className="w-full bg-gray-900 text-white p-3 rounded-xl border border-gray-700 focus:border-[var(--color-primary)] outline-none resize-none h-24"
                                         />
+                                        <button
+                                            onClick={async () => {
+                                                if (!manualDescription) return;
+                                                setLoading(true);
+                                                try {
+                                                    // Dynamic import to avoid circular dependencies if any, or just direct import reuse
+                                                    const { analyzeFoodText } = await import('../services/geminiService');
+                                                    const result = await analyzeFoodText(manualDescription);
+                                                    setManualCalories(result.calories.toString());
+                                                    setManualMacros({
+                                                        protein: result.macros.protein.toString(),
+                                                        carbs: result.macros.carbs.toString(),
+                                                        fat: result.macros.fat.toString()
+                                                    });
+                                                } catch (e) {
+                                                    console.error(e);
+                                                } finally {
+                                                    setLoading(false);
+                                                }
+                                            }}
+                                            disabled={loading || !manualDescription}
+                                            className="mt-2 w-full bg-[var(--color-secondary)]/20 text-[var(--color-secondary)] hover:bg-[var(--color-secondary)]/30 border border-[var(--color-secondary)]/50 font-bold py-2 rounded-lg text-sm flex items-center justify-center gap-2 transition-all"
+                                        >
+                                            {loading ? <Loader2 className="animate-spin" size={16} /> : <Utensils size={16} />}
+                                            Analizar con IA
+                                        </button>
                                     </div>
 
                                     <div>
