@@ -3668,7 +3668,7 @@ ${t.text}`}),t.file&&i.push({inlineData:{data:t.file.data,mimeType:t.file.mimeTy
 
       IMPORTANT: RESPOND IN SPANISH.
       Return JSON: { "xpEarned": number, "newLevel": "beginner" | "intermediate" | "rx" | "elite" | null, "feedback": "..." }
-    `,r=Ad.getGenerativeModel({model:"gemini-1.5-flash-001",systemInstruction:n}),i=`
+    `,r=Ad.getGenerativeModel({model:"gemini-pro",systemInstruction:n}),i=`
       Workout Performed:
       - Name: ${t.name}
       - Description: ${t.description}
@@ -3697,14 +3697,14 @@ ${t.text}`}),t.file&&i.push({inlineData:{data:t.file.data,mimeType:t.file.mimeTy
         ]
       }
       Respond in Spanish.
-    `,r=Ad.getGenerativeModel({model:"gemini-1.5-flash-001",systemInstruction:n}),i=`
+    `,r=Ad.getGenerativeModel({model:"gemini-pro",systemInstruction:n}),i=`
       User Details:
       - Age: ${t.age}
       - Gender: ${t.gender}
       - Fitness Level: ${e||t.fitnessLevel}
       - Available Equipment: ${t.equipment&&t.equipment.length>0?t.equipment.join(", "):"None (Bodyweight only)"}
       - Location: ${t.country||"General"}
-    `,u=(await(await r.generateContent({contents:[{role:"user",parts:[{text:i}]}],generationConfig:{responseMimeType:"application/json"}})).response).text();return JSON.parse(u)}catch(n){throw console.error("Error generating workout:",n),alert(`Error AI (Generate Workout): ${n instanceof Error?n.message:String(n)}`),n}},rk=async t=>{try{const n=Ad.getGenerativeModel({model:"gemini-1.5-flash-001",systemInstruction:`
+    `,u=(await(await r.generateContent({contents:[{role:"user",parts:[{text:i}]}],generationConfig:{responseMimeType:"application/json"}})).response).text();return JSON.parse(u)}catch(n){throw console.error("Error generating workout:",n),alert(`Error AI (Generate Workout): ${n instanceof Error?n.message:String(n)}`),n}},rk=async t=>{try{const n=Ad.getGenerativeModel({model:"gemini-pro",systemInstruction:`
       Act as an expert nutritionist. Analyze this image of a meal.
       Identify the food items present.
       Estimate the total calories and breakdown of macronutrients (Protein, Carbs, Fat).
@@ -3718,7 +3718,7 @@ ${t.text}`}),t.file&&i.push({inlineData:{data:t.file.data,mimeType:t.file.mimeTy
         "tips": "string"
       }
       Respond in Spanish.
-    `}),r=t.split(",")[1]||t,l=(await(await n.generateContent({contents:[{role:"user",parts:[{inlineData:{data:r,mimeType:"image/jpeg"}}]}],generationConfig:{responseMimeType:"application/json"}})).response).text();return JSON.parse(l)}catch(e){throw console.error("Error analyzing food:",e),alert(`Error AI (Food): ${e instanceof Error?e.message:String(e)}`),e}},G$=async t=>{try{const e="AIzaSyDUHWnpKunKeblW6VjvM96jeYP-jjCzvIM",u=(await(await new JM(e).getGenerativeModel({model:"gemini-1.5-flash-001",systemInstruction:`
+    `}),r=t.split(",")[1]||t,l=(await(await n.generateContent({contents:[{role:"user",parts:[{inlineData:{data:r,mimeType:"image/jpeg"}}]}],generationConfig:{responseMimeType:"application/json"}})).response).text();return JSON.parse(l)}catch(e){throw console.error("Error analyzing food:",e),alert(`Error AI (Food): ${e instanceof Error?e.message:String(e)}`),e}},G$=async t=>{try{const e="AIzaSyDUHWnpKunKeblW6VjvM96jeYP-jjCzvIM",u=(await(await new JM(e).getGenerativeModel({model:"gemini-pro",systemInstruction:`
       Act as an expert nutritionist. Analyze this text description of a meal.
       Identify the food items present.
       Estimate the total calories and breakdown of macronutrients (Protein, Carbs, Fat).
@@ -3743,7 +3743,7 @@ ${t.text}`}),t.file&&i.push({inlineData:{data:t.file.data,mimeType:t.file.mimeTy
         "meals": [ { "name": "...", "description": "...", "calories": number } ]
       }
       Respond in Spanish.
-    `,r=Ad.getGenerativeModel({model:"gemini-1.5-flash-001",systemInstruction:n}),i=`
+    `,r=Ad.getGenerativeModel({model:"gemini-pro",systemInstruction:n}),i=`
       User Profile:
       - Weight: ${t.weight}kg
       - Height: ${t.height}cm
